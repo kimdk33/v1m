@@ -1,0 +1,13 @@
+[project]
+name = "version1-mini"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "opencv-python>=4.13.0.92",
+    "pandas>=3.0.1",
+    "rfdetr>=1.4.3",
+    "scikit-learn>=1.8.0",
+    "supervision>=0.27.0.post1",
+]

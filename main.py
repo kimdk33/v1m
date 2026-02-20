@@ -1,12 +1,17 @@
+from numpy import byte
 import cv2
 from datetime import datetime
 import pandas as pd
-from ultralytics import YOLO
+# from ultralytics import YOLO
+from rfdetr import RFDETRNano
+from rfdetr.util.coco_classes import COCO_CLASSES
+
+import supervision as sv
+
 from collections import deque
 from detect_stopped_car import detect_highway_stopped_vehicle
 from get_speed_direction import detect_car_direction
 from get_wrong_way_and_speeding import wrong_way_drive, get_real_speed
-
 
 file_path = "./videos/test2.mp4"
 cctv_id = "best_11n_newdataset_v1"
@@ -18,9 +23,20 @@ fps = cap.get(cv2.CAP_PROP_FPS)
 # 속력을 계산할 때, 사용한 시간 7프레임 간격으로 속력 계산
 one_second = 1 * 16 / fps
 
+CLASSES = {
+    1: "person",
+    2: "bicycle",
+    3: "car",
+    4: "motorcycle",
+    6: "bus",
+    8: "truck",
+}
 
-model = YOLO("final_tune1.pt")
-print("Classes:", model.names)
+model = RFDETRNano()
+model.optimize_for_inference()
+tracker = sv.ByteTrack()
+
+print("Classes:", model.class_names)
 # model1 = YOLO("yolov8n.pt")
 
 #  Classes: {0: 'bus', 1: 'car', 2: 'motorcycle', 3: 'people', 4: 'person', 5: 'truck'}
@@ -51,89 +67,38 @@ while cap.isOpened():
     if not success:
         break
 
-    # =================================================================
-    # =======================  오토바이 & 사람 탐지  =====================
-    # =================================================================
-
-    # # 사람과 오토바이 탐지 YOLO 모델 적용
-    # detect_motorcycle = model1.track(frame, verbose=False, persist=True, classes=[0, 3])
-
-    # for box in detect_motorcycle[0].boxes:
-    #     if box.id is None:
-    #         continue
-    #     else:
-    #         M_id = int(box.id)
-    #         cls = int(box.cls)
-    #         mx, my, _, _ = box.xywh[0].tolist()
-    #         date_time = datetime.now()
-    #         file_name = f"motorcycle_people_{date_time.strftime("%Y_%m_%d_%H_%M_%S")}"
-    #         # column = ["type", "direction", "speed", "datetime", "illegal", "file_name"]
-    #         recording_start[M_id] = [(frame_count + 60), file_name, mx, my]
-
-    #         # 불법차량 빨간색 원으로 표시할 좌표
-    #         try:
-    #             recording_start[M_id][2] = mx
-    #             recording_start[M_id][3] = my
-    #         except:
-    #             pass
-
-    #         if cls == 0:
-    #             print("경고! 고속도로 위에서 사람 발견")
-
-    #         elif cls == 3:
-    #             print("경고! 고속도로 위에서 오토바이 발견")
-
-    # 원본 프레임을 720x480으로 리사이즈
-    # frame = cv2.resize(frame, (720, 480))
-
-
-    # 분석하지 않는 화면 하얀색으로 전처리
-
     # frame[:450, :] = 0  # 화면 상단 하얀색으로 전처리
     frame[:200, :] = 0
-    results = model.track(
-        frame, verbose=False, persist=True, conf=0.4,classes=[0, 1, 2, 3, 4, 5, 7], tracker="botsort.yaml"
-    )
 
-    # conf=0.5 , tracker="botsort.yaml"
-    result = results[0].plot()
-    for box in results[0].boxes:
+    results = model.predict(frame, 0.5) # 탐지
+    results = tracker.update_with_detections(results) # id 부여
 
-        if box.id is None:
-            continue
+    labels = [f"{COCO_CLASSES[class_id]}" for class_id in results.class_id]
+
+    # conf=0.5 , tracker="botsort.yaml" 
+
+    print(results)
+
+    print("="*50)
+
+    annotated_frame = sv.BoxAnnotator().annotate(frame, results)
+    annotated_frame = sv.LabelAnnotator().annotate(annotated_frame, results, labels)
+
+    # veh[0] = 박스 
+    # car[1] = Mask
+    # car[2] = class id
+    # car[3] = id
+
+    for car in results:
+        print(car)
+        print("="*50)
 
         # 차량 ID와 그 차량의 중심값
-        tid = int(box.id)
+        tid = int(car[3])
 
-        cx, cy, _, _ = box.xywh[0].tolist()
+        cx, cy= (car[0][0]+car[0][2])/2, (car[0][1] + car[0][3])/2
 
-        # =================================================================
-        # ===============  차량 속도데이터 수집을 시작합니다. ===================
-        # =================================================================
-
-        # =================================================================
-        # ========================  불법 주정차 탐지 =========================
-        # =================================================================
-
-        # 탐지 구역 지정:  이유: 탐지된 차량이 화면을 빠져나갈 때, 박스 라벨링 왜곡으로 오류 발생. 특히 트럭, 버스
-
-        # 고속도로 위 정차되어 있는 차량 탐지.
-        try:
-            detect_stopped_car = detect_highway_stopped_vehicle(tid, cx, cy)
-
-            if detect_stopped_car:
-                boolean_1, stopped_id = detect_stopped_car
-                print(f"차량 번호 : {stopped_id}: 고속도로 위에 주정차되어 있습니다.")
-
-                # 현시간을 기준으로 전후 2초, 총 4초간 동영상 녹화
-                stopped_car_datetime = datetime.now()
-                # file_name 예시 parking_25-12-19_13:00:00.mp4
-                file_name = f"parking[{tid}]_{stopped_car_datetime.strftime("%Y_%m_%d_%H_%M_%S")}"
-                recording_start[tid] = [(frame_count + 60), file_name, cx, cy]
-                # column = ["type", "direction", "speed", "datetime", "illegal", "file_name"]
-                df.loc[tid, ["illegal", "file_name"]] = ["parking", f"{file_name}.mp4"]
-        except:
-            print("파일을 못찾았어요")
+        print(cx,cy)
 
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # 탐지 존 영역 수정
@@ -157,8 +122,8 @@ while cap.isOpened():
         # cv2.line(result, (0, 320), (1920, 320), (0, 255, 0), 2)  # 하단 경계선
         
         #test2 video
-        cv2.line(result, (0, 510), (1920, 510), (0, 255, 0), 2)  # 상단 경계선
-        cv2.line(result, (0, 540), (1920, 540), (0, 255, 0), 2)  # 하단 경계선
+        cv2.line(annotated_frame, (0, 510), (1920, 510), (0, 255, 0), 2)  # 상단 경계선
+        cv2.line(annotated_frame, (0, 540), (1920, 540), (0, 255, 0), 2)  # 하단 경계선
          # ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
 
         if tid not in vehicle_id and in_zone:
@@ -179,7 +144,7 @@ while cap.isOpened():
                 continue
 
             else:
-                cls = int(box.cls)
+                cls = int(car[3])
                 direction, speed_px = result_dir_speed
                 # 프로그램 작동여부 확인 2번쩨 포인트
                 # print(speed_px)
@@ -273,10 +238,10 @@ while cap.isOpened():
                 out.release()
                 recording_start.pop(key)  # 한 번만 실행
 
-    cv2.imshow("frame", result)
+    cv2.imshow("frame", annotated_frame)
 
     # 녹화할 영상 dq에  담기
-    dq.append(result)
+    dq.append(annotated_frame)
 
     if cv2.waitKey(1) & 0xFF == ord("p"):
         print(df.tail())
