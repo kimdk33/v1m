@@ -1,9 +1,13 @@
 venv
 .venv
 
+**/__pycache__
+
 videos
 results
 
 *.pt
 *.pth
 *.onnx
+*.bin
+*.xml

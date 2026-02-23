@@ -74,9 +74,7 @@ while cap.isOpened():
     results = tracker.update_with_detections(results) # id 부여
 
     labels = [f"{COCO_CLASSES[class_id]}" for class_id in results.class_id]
-
-    # conf=0.5 , tracker="botsort.yaml" 
-
+   
     print(results)
 
     print("="*50)
@@ -84,7 +82,7 @@ while cap.isOpened():
     annotated_frame = sv.BoxAnnotator().annotate(frame, results)
     annotated_frame = sv.LabelAnnotator().annotate(annotated_frame, results, labels)
 
-    # veh[0] = 박스 
+    # car[0] = 박스 
     # car[1] = Mask
     # car[2] = class id
     # car[3] = id
