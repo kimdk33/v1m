@@ -25,9 +25,9 @@ print(time.perf_counter() - start)
 # ----- 후처리 -----
 boxes_cxcywh_norm = infer_request.get_output_tensor(0).data[0]
 logits = infer_request.get_output_tensor(1).data[0]
-xywh, scores, classes = utils.postprocess(boxes_cxcywh_norm, logits, orig_w, orig_h)
+boxes_xywh, scores, classes = utils.postprocess(boxes_cxcywh_norm, logits, orig_w, orig_h)
 print("max score:", scores.max())
-print(xywh[scores > 0.55])
+print(boxes_xywh[scores > 0.55])
 print(scores[scores > 0.55])
 print(classes[scores > 0.55])
 
@@ -41,7 +41,7 @@ COLORS = [
 SCORE_THRESHOLD = 0.55
 
 mask = scores > SCORE_THRESHOLD
-filtered_boxes   = xywh[mask]
+filtered_boxes   = boxes_xywh[mask]
 filtered_scores  = scores[mask]
 filtered_classes = classes[mask]
 
