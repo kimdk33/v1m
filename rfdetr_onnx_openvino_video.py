@@ -1,6 +1,5 @@
 import cv2
 import time
-import cv2
 import numpy as np
 import openvino as ov
 import utils
@@ -36,7 +35,7 @@ class Args:
 tracker = Fasttracker(config=config, args=Args(), frame_rate=30)
 
 # ----- 영상 불러옴 -----
-video = cv2.VideoCapture("./videos/test1.mp4")  # 원본 따로 보관
+video = cv2.VideoCapture("./videos/test2.mp4")  # 원본 따로 보관
 orig_h, orig_w = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT)), int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
 
 # ----- 시각화 -----
@@ -98,7 +97,7 @@ while True:
         color = COLORS[tid % len(COLORS)]
         cls_name = utils.COCO_CLASSES.get(cls, str(cls))
         label = f"{cls_name}: {score:.2f} (ID:{tid})"
-        cv2.rectangle(result_img, (x1, y1), (x2, y2), color, 2)
+        cv2.rectangle(result_img, (x1, y1), (x2, y2), color, 1)
         (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
         cv2.rectangle(result_img, (x1, y1 - th - 6), (x1 + tw, y1), color, -1)
         cv2.putText(result_img, label, (x1, y1 - 4),
