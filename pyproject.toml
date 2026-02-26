@@ -5,7 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "opencv-python>=4.13.0.92",
+    "cython-bbox>=0.1.5",
+    "lapx>=0.9.4",
     "openvino>=2025.4.1",
     "pandas>=3.0.1",
     "rfdetr[onnxexport]>=1.4.3",
