@@ -122,11 +122,20 @@ def postprocess(
     x2 = (cx + w/2) * orig_w
     y2 = (cy + h/2) * orig_h
 
+    boxes_xyxy = np.stack([x1, y1, x2, y2], axis=1)
+
+    # clamp
+    boxes_xyxy[:, 0::2] = np.clip(boxes_xyxy[:, 0::2], 0, orig_w)
+    boxes_xyxy[:, 1::2] = np.clip(boxes_xyxy[:, 1::2], 0, orig_h)
+    
     # softmax(몰루)
     exp = np.exp(logits - logits.max(axis=1, keepdims=True))
     probs = exp / exp.sum(axis=1, keepdims=True)
 
-    scores = probs.max(axis=1)
-    classes = probs.argmax(axis=1)
+    fg_probs = probs[:, 1:] # 배경없앰
+    scores = fg_probs.max(axis=1)
+    classes = fg_probs.argmax(axis=1) + 1 
 
-    return np.stack([x1, y1, x2, y2], axis=1), scores, classes
+    keep = scores > conf
+
+    return boxes_xyxy[keep], scores[keep], classes[keep]
